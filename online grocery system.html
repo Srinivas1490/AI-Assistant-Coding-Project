@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GreenBasket — Admin & User Portal</title>
+  <style>
+    :root { 
+      --accent: #27ae60; 
+      --bg: #f6f7f9; 
+      --card: #fff; 
+      --stripe: #635bff; 
+      --admin: #2c3e50; 
+      --danger: #e74c3c; 
+      --muted: #7f8c8d;
+    }
+    
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { margin: 0; background: var(--bg); color: #333; line-height: 1.6; }
+    
+    header { 
+      background: #fff; 
+      padding: 15px 24px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+      position: sticky; 
+      top: 0; 
+      z-index: 100; 
+    }
+    .logo { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+    .role-badge { 
+      padding: 6px 14px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: bold; 
+      cursor: pointer; 
+      border: 2px solid var(--accent); 
+      color: var(--accent); 
+      transition: 0.3s;
+    }
+    .role-admin { border-color: var(--admin); color: var(--admin); }
+
+    main { 
+      display: grid; 
+      grid-template-columns: 240px 1fr 320px; 
+      gap: 20px; 
+      padding: 20px; 
+      max-width: 1400px; 
+      margin: 0 auto; 
+    }
+    
+    @media (max-width: 1100px) { 
+      main { grid-template-columns: 1fr; } 
+      .sidebar { display: none; } 
+    }
+
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); margin-bottom: 20px; }
+    
+    /* Category List */
+    .cat-item { padding: 10px 15px; border-radius: 8px; cursor: pointer; transition: 0.2s; margin-bottom: 5px; }
+    .cat-item:hover { background: #f0f0f0; }
+    .cat-item.active { background: var(--accent); color: white; font-weight: 600; }
+
+    /* Product Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+    .product { 
+      text-align: center; 
+      border: 1px solid #eee; 
+      padding: 15px; 
+      border-radius: 12px; 
+      background: white; 
+      transition: transform 0.2s;
+    }
+    .product:hover { transform: translateY(-5px); }
+    .product img { width: 100%; height: 100px; object-fit: contain; margin-bottom: 10px; border-radius: 5px; }
+    
+    /* Buttons */
+    .btn { background: var(--accent); color: #fff; border: 0; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-pay { background: var(--stripe); color: white; border: 0; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* Order History */
+    .history-item { border-left: 5px solid var(--accent); padding: 15px; background: #fff; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .track-dots { display: flex; justify-content: space-between; margin: 15px 0; position: relative; }
+    .track-dots::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #eee; z-index: 1; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: #eee; z-index: 2; border: 2px solid #fff; }
+    .dot.active { background: var(--accent); transform: scale(1.4); }
+
+    /* Payment Overlays */
+    #payOverlay { 
+      position: fixed; 
+      top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.8); 
+      display: none; 
+      justify-content: center; 
+      align-items: center; 
+      z-index: 1000; 
+      backdrop-filter: blur(5px); 
+    }
+    .modal { background: #fff; padding: 30px; border-radius: 20px; width: 400px; text-align: center; max-width: 90%; }
+    
+    .loader { 
+      border: 4px solid #f3f3f3; 
+      border-top: 4px solid var(--accent); 
+      border-radius: 50%; 
+      width: 40px; height: 40px; 
+      animation: spin 1s linear infinite; 
+      margin: 20px auto; 
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GreenBasket</div>
+  <div style="display: flex; gap: 15px; align-items: center;">
+    <div id="roleToggle" class="role-badge" onclick="toggleRole()">SWITCH TO ADMIN</div>
+    <div style="font-weight: bold; cursor: pointer;">🛒 <span id="cartCount">0</span></div>
+  </div>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <div class="card">
+      <h3>Categories</h3>
+      <div id="catMenu"></div>
+    </div>
+  </aside>
+
+  <section id="contentArea">
+    <div id="userProducts" class="card">
+      <h2 id="marketTitle">Fresh Market</h2>
+      <div id="productGrid" class="grid"></div>
+    </div>
+
+    <div class="card">
+      <h3 id="historyTitle">My Orders</h3>
+      <div id="orderList"></div>
+    </div>
+  </section>
+
+  <aside id="cartSection">
+    <div class="card">
+      <h3>Checkout</h3>
+      <div id="cartItems" style="font-size: 14px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;"></div>
+      
+      <div style="margin-bottom: 15px;">
+        <input type="text" id="custName" placeholder="Recipient Name" style="width:100%; padding:10px; margin-bottom:8px; border: 1px solid #ddd; border-radius: 5px;">
+        <input type="text" id="custAddr" placeholder="Delivery Address" style="width:100%; padding:10px; border: 1px solid #ddd; border-radius: 5px;">
+      </div>
+      
+      <h3 id="totalPrice" style="margin-bottom: 20px;">Total: $0</h3>
+      <button class="btn" id="payBtn" onclick="openPay()" disabled>Proceed to Payment</button>
+    </div>
+  </aside>
+</main>
+
+<div id="payOverlay">
+  <div class="modal">
+    <div id="methodSelect">
+      <h3 style="margin-top:0">Choose Payment Method</h3>
+      <p style="color:var(--muted)">Order Total: <strong id="modalTotal" style="color:#111"></strong></p>
+      
+      <button class="btn-pay" onclick="simulatePayment('Online Payment')">
+        💳 Credit / Debit Card
+      </button>
+      
+      <button class="btn-pay" onclick="showQR()" style="background:#000;">
+        📱 UPI / QR Code (Offline Digital)
+      </button>
+
+      <button onclick="simulatePayment('Cash on Delivery')" style="background:none; border:none; color:var(--accent); margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline">
+        Pay with Cash on Delivery
+      </button>
+    </div>
+
+    <div id="qrState" style="display:none">
+      <h3>Scan to Pay</h3>
+      <div style="padding: 15px; background: #f9f9f9; border-radius: 10px; margin-bottom: 15px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=GreenBasketPay" style="width:150px;" alt="QR Code">
+        <p style="font-size: 12px; color: #666;">Scan using your banking app</p>
+      </div>
+      <button class="btn" onclick="simulatePayment('UPI/QR')">Confirm Payment Made</button>
+    </div>
+
+    <div id="processingState" style="display:none">
+      <div class="loader"></div>
+      <h3>Verifying...</h3>
+      <p>Securely placing your order.</p>
+    </div>
+
+    <button onclick="closeModal()" id="cancelBtn" style="background:none; border:none; color:var(--danger); margin-top:20px; cursor:pointer">Cancel</button>
+  </div>
+</div>
+
+<script>
+  // Product Database
+  const products = [
+    {id:1, name:'Red Apple', price:50, cat:'Fruits', img:'https://www.collinsdictionary.com/images/full/apple_158989157.jpg'},
+    {id:2, name:'Banana', price:120, cat:'Fruits', img:'https://www.bobtailfruit.co.uk/media/mageplaza/blog/post/4/2/42e9as7nataai4a6jcufwg.jpeg'},
+    {id:3, name:'Milk 1L', price:90, cat:'Dairy', img:'https://dairypure.com/wp-content/uploads/2023/09/whole-milk-paper-half-gallon.png'},
+    {id:4, name:'Brown Bread', price:180, cat:'Bakery', img:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRgkeYnkvGnkSzX16RireD06ZhVdjT1EZ6FUg&s'},
+    {id:5, name:'Chicken 500g', price:450, cat:'Meat', img:'https://food.fnr.sndimg.com/content/dam/images/food/fullset/2023/2/23/FNK_Indian-Fried-Chicken_s4x3.jpg'},
+    {id:6, name:'Basmati Rice 5kg', price:1200, cat:'Grains', img:'https://www.indianhealthyrecipes.com/wp-content/uploads/2023/07/basmati-rice-recipe.jpg'},
+    {id:7, name:'Olive Oil', price:650, cat:'Pantry', img:'https://www.organicoils.it/wp-content/uploads/2021/12/olio-extra-vergine-di-oliva-250ml-fronte-crudigno.jpg'}
+  ];
+
+  let cart = {};
+  let orders = JSON.parse(localStorage.getItem('greenbasket_orders') || '[]');
+  let isAdmin = false;
+  let selectedCategory = 'All';
+
+  // Initialization
+  function initCategories() {
+    const categories = ['All', ...new Set(products.map(p => p.cat))];
+    document.getElementById('catMenu').innerHTML = categories.map(cat => `
+      <div class="cat-item ${selectedCategory === cat ? 'active' : ''}" onclick="filterByCategory('${cat}')">
+        ${cat}
+      </div>`).join('');
+  }
+
+  function filterByCategory(cat) {
+    selectedCategory = cat;
+    initCategories();
+    render();
+  }
+
+  function toggleRole() {
+    isAdmin = !isAdmin;
+    render();
+  }
+
+  function addToCart(id) {
+    cart[id] = (cart[id] || 0) + 1;
+    render();
+  }
+
+  // CORE RENDER ENGINE
+  function render() {
+    const badge = document.getElementById('roleToggle');
+    badge.innerText = isAdmin ? "SWITCH TO USER" : "SWITCH TO ADMIN";
+    badge.className = isAdmin ? "role-badge role-admin" : "role-badge";
+    
+    document.getElementById('historyTitle').innerText = isAdmin ? "Admin: All Customer Orders" : "My Order History";
+    document.getElementById('userProducts').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('cartSection').style.display = isAdmin ? 'none' : 'block';
+
+    const filtered = selectedCategory === 'All' ? products : products.filter(p => p.cat === selectedCategory);
+
+    // Render Products
+    document.getElementById('productGrid').innerHTML = filtered.map(p => `
+      <div class="product">
+        <img src="${p.img}">
+        <h4>${p.name}</h4>
+        <b style="color:var(--accent)">$${p.price}</b>
+        <button class="btn" style="padding:6px; margin-top:10px; font-size:12px;" onclick="addToCart(${p.id})">Add to Cart</button>
+      </div>`).join('');
+
+    // Render Cart
+    let total = 0, count = 0, cartHtml = '';
+    Object.keys(cart).forEach(id => {
+      const p = products.find(x => x.id == id);
+      total += p.price * cart[id];
+      count += cart[id];
+      cartHtml += `<div><strong>${p.name}</strong> x ${cart[id]}</div>`;
+    });
+    
+    document.getElementById('cartItems').innerHTML = cartHtml || '<span style="color:#999">No items in cart</span>';
+    document.getElementById('totalPrice').innerText = `Total: $${total}`;
+    document.getElementById('cartCount').innerText = count;
+    document.getElementById('payBtn').disabled = total === 0;
+
+    renderOrders();
+  }
+
+  function renderOrders() {
+    const list = document.getElementById('orderList');
+    if (orders.length === 0) {
+      list.innerHTML = '<p style="color:#999; text-align:center">No orders found.</p>';
+      return;
+    }
+
+    list.innerHTML = orders.map(o => `
+      <div class="history-item">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <b>Order #${o.id} - ${o.name}</b>
+          <span style="color:var(--accent); font-weight:bold; font-size:14px">${o.status}</span>
+        </div>
+        <div class="track-dots">
+          <div class="dot ${o.step>=1?'active':''}"></div>
+          <div class="dot ${o.step>=2?'active':''}"></div>
+          <div class="dot ${o.step>=3?'active':''}"></div>
+          <div class="dot ${o.step>=4?'active':''}"></div>
+        </div>
+        <div style="font-size: 11px; color: #666; margin-top: 5px;">
+          📍 ${o.addr} | 💰 ${o.total} (${o.method})<br>
+          📅 Ordered on: ${o.date}
+        </div>
+      </div>`).join('');
+  }
+
+  // PAYMENT MODULE
+  function openPay() {
+    if(!document.getElementById('custName').value || !document.getElementById('custAddr').value) {
+      alert("Please enter recipient name and delivery address.");
+      return;
+    }
+    document.getElementById('modalTotal').innerText = document.getElementById('totalPrice').innerText;
+    document.getElementById('payOverlay').style.display = 'flex';
+    resetModalView();
+  }
+
+  function resetModalView() {
+    document.getElementById('methodSelect').style.display = 'block';
+    document.getElementById('qrState').style.display = 'none';
+    document.getElementById('processingState').style.display = 'none';
+    document.getElementById('cancelBtn').style.display = 'inline-block';
+  }
+
+  function closeModal() {
+    document.getElementById('payOverlay').style.display = 'none';
+  }
+
+  function showQR() {
+    document.getElementById('methodSelect').style.display = 'none';
+    document.getElementById('qrState').style.display = 'block';
+  }
+
+  function simulatePayment(method) {
+    document.getElementById('methodSelect').style.display = 'none';
+    document.getElementById('qrState').style.display = 'none';
+    document.getElementById('processingState').style.display = 'block';
+    document.getElementById('cancelBtn').style.display = 'none';
+
+    // Simulate network delay
+    setTimeout(() => {
+      const now = new Date();
+      const newOrder = {
+        id: Math.floor(1000 + Math.random() * 9000),
+        name: document.getElementById('custName').value,
+        addr: document.getElementById('custAddr').value,
+        total: document.getElementById('totalPrice').innerText,
+        method: method,
+        date: now.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        step: 1,
+        status: method === 'Cash on Delivery' ? 'Order Placed' : 'Paid'
+      };
+
+      orders.unshift(newOrder);
+      localStorage.setItem('greenbasket_orders', JSON.stringify(orders));
+      
+      // Cleanup
+      cart = {};
+      document.getElementById('custName').value = '';
+      document.getElementById('custAddr').value = '';
+      closeModal();
+      render();
+      alert(`Success! Order #${newOrder.id} placed via ${method}.`);
+    }, 1500);
+  }
+
+  // Background Tracker Engine
+  setInterval(() => {
+    let changed = false;
+    orders.forEach(o => {
+      if(o.step < 4) {
+        o.step++;
+        o.status = ['Confirmed', 'Packed', 'Out for Delivery', 'Delivered'][o.step-1];
+        changed = true;
+      }
+    });
+    if(changed) { 
+      localStorage.setItem('greenbasket_orders', JSON.stringify(orders)); 
+      renderOrders(); 
+    }
+  }, 10000); // Progress every 10 seconds for demo purposes
+
+  // Start App
+  initCategories();
+  render();
+</script>
+</body>
+</html>
